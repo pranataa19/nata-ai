@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f7fa;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .dark-mode body {
+            background-color: #2c2c2c;
+            color: #e0e0e0;
+        }
+
+        nav {
+            background-color: #0078ff;
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+
+        .dark-mode nav {
+            background-color: #1a1a1a;
+        }
+
+        nav h1 {
+            font-size: 1.5rem;
+        }
+
+        nav .settings {
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .container {
+            width: 600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            height: 100%;
+            padding-bottom: 80px;
+        }
+
+        .chatbox {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            height: calc(100% - 120px);
+            padding-bottom: 80px;
+            background-color: white;
+            transition: background-color 0.3s;
+        }
+
+        .message {
+            margin: 0.5rem 0;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.ai {
+            justify-content: flex-start;
+        }
+
+        .message .profile {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            background-color: #ddd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .message .profile img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .message .bubble {
+            padding: 1rem;
+            max-width: 75%;
+            border-radius: 15px;
+            box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+            line-height: 1.6;
+            text-align: left;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            /* Jarak antara bubble */
+        }
+
+        .bubble.user {
+            background-color: #0078ff;
+            color: #fff;
+            text-align: right;
+        }
+
+        .bubble.ai {
+            background-color: #e5e5ea;
+            color: #333;
+        }
+
+        form {
+            position: fixed;
+            bottom: 0;
+            width: 600px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            background-color: white;
+            padding: 10px;
+            box-shadow: 0px -4px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 30px;
+            transition: background-color 0.3s;
+        }
+
+        .dark-mode form {
+            background-color: #1a1a1a;
+        }
+
+        form textarea {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 20px;
+            resize: none;
+            outline: none;
+            font-size: 1rem;
+            background-color: #f5f7fa;
+            color: #333;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .dark-mode form textarea {
+            background-color: #333;
+            color: #e0e0e0;
+        }
+
+        form button {
+            background-color: #0078ff;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .dark-mode form button {
+            background-color: #0056b3;
+        }
+
+        form button:disabled {
+            background-color: #ccc;
+        }
+
+        .loader {
+            display: none;
+            text-align: center;
+            font-size: 1rem;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .loader.active {
+            display: block;
+        }
+
+        .theme-switch {
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <h1>AI Chat</h1>
+        <span class="settings theme-switch">🌙</span>
+    </nav>
+
+    <div class="container">
+        <div class="chatbox" id="chatbox"></div>
+        <div class="loader" id="loader">Memproses...</div>
+    </div>
+
+    <form id="inputForm">
+        <textarea name="user_input" rows="2" placeholder="Ketik pesan..."></textarea>
+        <button type="submit">Kirim</button>
+    </form>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatbox = document.getElementById('chatbox');
+            const loader = document.getElementById('loader');
+            const inputForm = document.getElementById('inputForm');
+            const submitButton = inputForm.querySelector('button');
+            const themeSwitch = document.querySelector('.theme-switch');
+
+            const loadMessages = () => {
+                const messages = JSON.parse(localStorage.getItem('messages')) || [];
+                messages.forEach(message => {
+                    chatbox.innerHTML += `<div class="message ${message.sender}"><div class="profile"><img src="${message.profile}" alt="${message.sender}"/></div><div class="bubble">${message.text}</div></div>`;
+                });
+                chatbox.scrollTop = chatbox.scrollHeight;
+            };
+
+            const saveMessage = (sender, text, profile) => {
+                const messages = JSON.parse(localStorage.getItem('messages')) || [];
+                messages.push({ sender, text, profile });
+                localStorage.setItem('messages', JSON.stringify(messages));
+            };
+
+            loadMessages();
+
+            inputForm.onsubmit = async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const userMessage = formData.get('user_input').trim();
+
+                if (!userMessage) {
+                    alert('Pesan tidak boleh kosong!');
+                    return;
+                }
+
+                const userProfile = 'logo/logo.png'; // Update with actual user profile image path
+                chatbox.innerHTML += `<div class="message user"><div class="profile"><img src="${userProfile}" alt="User"/></div><div class="bubble">${userMessage}</div></div>`;
+                saveMessage('user', userMessage, userProfile);
+                chatbox.scrollTop = chatbox.scrollHeight;
+                loader.classList.add('active');
+                submitButton.disabled = true;
+
+                try {
+                    const response = await fetch('/generate', { method: 'POST', body: formData });
+                    const data = await response.json();
+                    if (response.ok) {
+                        const formattedResponse = data
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/##(.*?)##/g, '<strong>$1</strong>')
+                            .replace(/^\s*\*\s*(.*?)\s*\*$/g, '$1')
+                            .replace(/\s*\*\s*(.*?)\s*\*\s*/g, '$1')
+                            .replace(/^\s*#+\s*/gm, '')
+                            .replace(/(\d+\.\s?)/g, '<br>$1')
+                            .replace(/\. *([#*])/g, '.<br>')
+                            .replace(/\. *\*\*/g, '.<br>')
+                            .replace(/\. *##/g, '.<br>')
+                            .split('\n')
+                            .map(paragraph => `<p>${paragraph.trim()}</p>`)
+                            .join('');
+
+                        const aiProfile = 'logo/logo.png'; // Update with actual AI profile image path
+                        chatbox.innerHTML += `<div class="message ai"><div class="profile"><img src="${aiProfile}" alt="AI"/></div><div class="bubble">${formattedResponse}</div></div>`;
+                        saveMessage('ai', formattedResponse, aiProfile);
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                } catch (error) {
+                    alert('Gagal mengirim pesan. Coba lagi.');
+                }
+
+                loader.classList.remove('active');
+                submitButton.disabled = false;
+                e.target.reset(); // Reset textarea
+                chatbox.scrollTop = chatbox.scrollHeight;
+            };
+
+
+            themeSwitch.onclick = () => {
+                document.body.classList.toggle('dark-mode');
+                localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+                themeSwitch.textContent = document.body.classList.contains('dark-mode') ? '🌞' : '🌙';
+            };
+
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+                themeSwitch.textContent = '🌞';
+            } else {
+                themeSwitch.textContent = '🌙';
+            }
+        });
+    </script>
+</body>
+
+</html>
